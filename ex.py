@@ -9,6 +9,7 @@ import sys
 import os
 import base64
 import httpx
+from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
 from convert_pdf import convert_pdf_to_images
@@ -17,7 +18,7 @@ load_dotenv()
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "google/gemini-flash-1.5"
+MODEL = "google/gemini-3-flash-preview"
 
 OBSIDIAN_VAULT = Path("/Users/aashichaubey/Documents/LLM wiki/LLM wiki")
 
@@ -42,6 +43,8 @@ You will be given an image of a handwritten lecture note page. Your job is to:
 7. Do not summarize — capture everything
 
 Output only the markdown content, no preamble."""
+
+TITLE_SYSTEM_PROMPT = "Given these lecture notes, generate a short descriptive title of 3-6 words that captures the main topic. Return only the title, nothing else."
 
 def image_to_base64(image_path: Path) -> str:
     with open(image_path, "rb") as f:
@@ -84,6 +87,27 @@ def extract_page(image_path: Path) -> str:
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"]
 
+def generate_notes_title(notes_content: str) -> str:
+    response = httpx.post(
+        OPENROUTER_URL,
+        headers={
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": MODEL,
+            "max_tokens": 64,
+            "messages": [
+                {"role": "system", "content": TITLE_SYSTEM_PROMPT},
+                {"role": "user", "content": notes_content},
+            ],
+        },
+        timeout=60,
+    )
+    response.raise_for_status()
+    title = response.json()["choices"][0]["message"]["content"].strip()
+    return title.replace("\n", " ")
+
 def process_pdf(pdf_path: str, course_code: str, lecture_number: str):
     course_code = course_code.upper()
     if course_code not in COURSE_FOLDERS:
@@ -94,7 +118,7 @@ def process_pdf(pdf_path: str, course_code: str, lecture_number: str):
     image_paths = convert_pdf_to_images(pdf_path)
 
     # extract each page
-    print(f"Extracting notes with Claude Vision...")
+    print(f"Extracting notes with Gemini Flash...")
     all_pages = []
     for image_path in image_paths:
         page_content = extract_page(image_path)
@@ -103,17 +127,25 @@ def process_pdf(pdf_path: str, course_code: str, lecture_number: str):
     # merge all pages into one markdown file
     lecture_num = lecture_number.zfill(2)
     pdf_name = Path(pdf_path).stem
-    merged_content = f"# {course_code} — Lecture {lecture_num}\n\n"
+    now = datetime.now()
+    display_date = f"{now.strftime('%B')} {now.day}, {now.year}"
+    filename_date = now.strftime("%b").lower() + f"{now.day:02d}"
+    pages_merged_content = "\n\n---\n\n".join(all_pages)
+
+    notes_title = generate_notes_title(pages_merged_content)
+
+    merged_content = f"# {course_code} — Lecture {lecture_num} ({display_date})\n\n"
+    merged_content += f"## {notes_title}\n\n"
     merged_content += f"**Course**: {COURSE_FOLDERS[course_code]}\n"
     merged_content += f"**Source**: {pdf_name}\n\n"
     merged_content += "---\n\n"
-    merged_content += "\n\n---\n\n".join(all_pages)
+    merged_content += pages_merged_content
 
     # save to Obsidian vault
     course_folder = OBSIDIAN_VAULT / COURSE_FOLDERS[course_code]
     course_folder.mkdir(parents=True, exist_ok=True)
 
-    output_path = course_folder / f"lecture-{lecture_num}.md"
+    output_path = course_folder / f"lecture-{lecture_num}-{filename_date}.md"
     output_path.write_text(merged_content, encoding="utf-8")
 
     print(f"\n✓ Saved to Obsidian: {output_path}")

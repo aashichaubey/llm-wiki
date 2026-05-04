@@ -1,0 +1,31 @@
+1. Export the PDF from Notability; AirDrop it to your Mac (or save it somewhere you can find, e.g. Downloads).
+
+2. Get the full path to the file. In Finder, right-click the PDF, hold Option, then choose "Copy … as Pathname" (or use your usual shortcut to copy the path).
+
+3. In Terminal, go to this repo and run (course code and lecture number are separate arguments):
+   python3 ex.py "<path_to_pdf>" <COURSE_CODE> <lecture_number>
+
+   Example:
+   python3 ex.py "/Users/aashichaubey/Downloads/Assignment 9.pdf" ECE252 03
+
+   - COURSE_CODE is the short code (e.g. ECE252), not the long folder name.
+   - lecture_number is the lecture index (e.g. 03 or 3); the script zero-pads to two digits.
+
+4. Output: notes are written under the Obsidian vault as
+   /Users/aashichaubey/Documents/LLM wiki/LLM wiki/<course folder>/lecture-<NN>-<mon><dd>.md
+   e.g. lecture-03-may04.md (date is the day you run the script). The file includes a main title with the date and an auto-generated short topic title under the heading.
+
+5. To work with the vault in the terminal (e.g. then open files or use another tool):
+   cd "/Users/aashichaubey/Documents/LLM wiki/LLM wiki"
+
+Valid COURSE_CODE values (must match ex.py):
+COURSE_FOLDERS = {
+    "ECE203": "ECE203 - Probability and Statistics",
+    "ECE207": "ECE207 - Signals and Systems",
+    "ECE208": "ECE208 - Discrete Mathematics and Logic",
+    "ECE224": "ECE224 - Embedded Microprocessor Systems",
+    "ECE252": "ECE252 - Systems Programming and Concurrency",
+    "ECE298": "ECE298 - Instrumentation Lab",
+}
+
+Prereq: .env in the repo with OPENROUTER_API_KEY set (ex.py loads it via python-dotenv).
