@@ -50,7 +50,6 @@ claude
 Then ask anything:
 - "Summarize what we covered in ECE252 so far"
 - "Find everything related to concurrency and race conditions"
-- "What's the difference between how ECE207 and ECE208 approach logic"
 
 ## Courses
 
